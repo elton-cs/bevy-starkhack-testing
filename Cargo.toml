@@ -5,3 +5,8 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.13.2"
+starknet-ff = "0.3.7"
+tokio = "1.38.0"
+torii-client = {git = "https://github.com/dojoengine/dojo.git" }
+torii-grpc = {git = "https://github.com/dojoengine/dojo.git" }
+
