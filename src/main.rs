@@ -1,4 +1,4 @@
-use bevy_starkhack_testing::handling::{get_current_position, handle_entity_updates};
+use bevy_starkhack_testing::handling::get_current_position;
 use starknet_crypto::poseidon_hash_many;
 use starknet_ff::FieldElement;
 use std::vec;
