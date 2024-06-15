@@ -20,4 +20,25 @@ pub fn get_current_position(entity: &Entity) -> (u32, u32) {
     (x, y)
 }
 
-pub fn get_current_moves() {}
+pub fn get_current_moves(entity: &Entity) -> (u8, (u8, String)) {
+    let remaining = entity.models[2].members[1]
+        .ty
+        .as_primitive()
+        .unwrap()
+        .as_u8()
+        .unwrap();
+
+    let last_direction_num = entity.models[2].members[2]
+        .ty
+        .as_enum()
+        .unwrap()
+        .option
+        .unwrap();
+
+    let last_direction_string = entity.models[2].members[2].ty.as_enum().unwrap().options
+        [Into::<usize>::into(last_direction_num)]
+    .name
+    .clone();
+
+    (remaining, (last_direction_num, last_direction_string))
+}
