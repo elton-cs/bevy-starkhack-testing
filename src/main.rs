@@ -1,7 +1,7 @@
-use std::vec;
-
+use bevy_starkhack_testing::handling::{get_current_position, handle_entity_updates};
 use starknet_crypto::poseidon_hash_many;
 use starknet_ff::FieldElement;
+use std::vec;
 use tokio_stream::StreamExt;
 use torii_client::client::Client;
 use torii_grpc::client::EntityUpdateStreaming;
@@ -24,11 +24,25 @@ async fn main() {
         .await
         .unwrap();
 
+    // let metadata = client.metadata();
+    // let schema = metadata.model("Position").unwrap().schema.clone();
+    // println!("Metadata: {:?}", schema);
+
     let mut stream = get_entities_stream(&client).await;
 
     while let Some(data) = stream.next().await {
-        println!("Incoming Data: {:?}", data);
-        println!("----------");
+        match data {
+            Ok(data) => {
+                if data.models.is_empty() {
+                    println!("Skipping initialization response.");
+                } else {
+                    get_current_position(&data);
+                }
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+            }
+        }
     }
 }
 
