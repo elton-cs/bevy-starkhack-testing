@@ -928,8 +928,10 @@ name = "bevy-starkhack-testing"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "starknet-crypto",
  "starknet-ff",
  "tokio",
+ "tokio-stream",
  "torii-client",
  "torii-grpc",
 ]
