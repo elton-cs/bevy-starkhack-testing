@@ -38,7 +38,7 @@ struct Moves {
 fn main() {
     App::new()
         .add_systems(Startup, (spawn_camera, spawn_player, setup_tokio_and_torii))
-        .add_systems(Update, (update_torii_entity, update_torii_position))
+        .add_systems(Update, (update_torii_entity, update_torii_position).chain())
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -96,22 +96,27 @@ fn spawn_player(
     ));
 }
 
-fn update_torii_entity(mut torii_entity: ResMut<ToriiResource>) {
+fn update_torii_entity(mut torii_entity: ResMut<ToriiResource>, query: Query<&Position>) {
     if let Ok(new_entity) = torii_entity.rx.try_recv() {
         // info!("Message from Torii Client: {:?}", entity);
         torii_entity.prev_entity = torii_entity.entity.clone();
         torii_entity.entity = new_entity;
+
         print_torii_position(torii_entity);
+        print_bevy_position(query);
     }
 }
 
 fn print_torii_position(torii_entity: ResMut<ToriiResource>) {
-    let has_changed = torii_entity.entity != torii_entity.prev_entity;
-    let is_model_empty = torii_entity.entity.models.is_empty();
-
-    if !is_model_empty && has_changed {
+    if !torii_entity.entity.models.is_empty() {
         let (x, y) = get_current_position(&torii_entity.entity);
         info!("Torii Entity Position: ({}, {})", x, y);
+    }
+}
+
+fn print_bevy_position(query: Query<&Position>) {
+    for position in query.iter() {
+        info!("Bevy Entity Position: ({}, {})", position.x, position.y);
     }
 }
 
@@ -125,8 +130,8 @@ fn update_torii_position(
         for (mut position, mut transform) in query.iter_mut() {
             position.x = x;
             position.y = y;
-            transform.translation.x = x as f32 * 8.;
-            transform.translation.y = y as f32 * 8.;
+            transform.translation.x = x as f32 * 10.;
+            transform.translation.y = y as f32 * 10.;
         }
     }
 }
