@@ -7,8 +7,6 @@ use torii_client::client::Client;
 use torii_grpc::{client::EntityUpdateStreaming, types::schema::Entity};
 
 pub async fn run_torii_client(tx: Sender<Entity>) {
-    println!("Running a rust torii client!");
-
     // client configuration
     let torii_url = "http://0.0.0.0:8080".to_string();
     let rpc_url = "http://0.0.0.0:5050".to_string();
@@ -18,23 +16,26 @@ pub async fn run_torii_client(tx: Sender<Entity>) {
     )
     .unwrap();
 
+    // stream configuration
+    let player_contract_address = FieldElement::from_hex_be(
+        "0xb3ff441a68610b30fd5e2abbf3a1548eb6ba6f3559f2862bf2dc757e5828ca",
+    )
+    .unwrap();
+
     // create a new client
     let client: Client = Client::new(torii_url, rpc_url, relay_url, world, None)
         .await
         .unwrap();
 
-    // let metadata = client.metadata();
-    // let schema = metadata.model("Position").unwrap().schema.clone();
-    // println!("Metadata: {:?}", schema);
+    // create stream for entity updates
+    let mut stream = get_entities_stream(&client, player_contract_address).await;
 
-    let mut stream = get_entities_stream(&client).await;
-
+    // listen for entity updates
     while let Some(data) = stream.next().await {
         match data {
             Ok(data) => {
-                if data.models.is_empty() {
-                    println!("Skipping initialization response.");
-                } else {
+                if !data.models.is_empty() {
+                    // send entity updates to main thread
                     tx.send(data).await.unwrap();
                 }
             }
@@ -45,36 +46,16 @@ pub async fn run_torii_client(tx: Sender<Entity>) {
     }
 }
 
-async fn get_entities_stream(client: &Client) -> EntityUpdateStreaming {
+async fn get_entities_stream(
+    client: &Client,
+    player_contract_address: FieldElement,
+) -> EntityUpdateStreaming {
     // create hash of all models' keys (in this case, just one: the player's contract addresss)
-    let player_contract_address = FieldElement::from_hex_be(
-        "0xb3ff441a68610b30fd5e2abbf3a1548eb6ba6f3559f2862bf2dc757e5828ca",
-    )
-    .unwrap();
     let vec_keys = vec![player_contract_address.clone()];
     let hashed_keys = poseidon_hash_many(&vec_keys);
 
-    // subscribe to the player's contract address
+    // subscribe to updates on models with player's contract address as key
     let stream = client.on_entity_updated(vec![hashed_keys]).await.unwrap();
-
-    stream
-}
-
-// todo: find what the event_key represents
-async fn _get_events_stream(client: &Client) -> EntityUpdateStreaming {
-    // create hash of all models' keys (in this case, just one: the player's contract addresss)
-    let event_key = FieldElement::from_hex_be(
-        "0xb3ff441a68610b30fd5e2abbf3a1548eb6ba6f3559f2862bf2dc757e5828ca",
-    )
-    .unwrap();
-    let vec_keys = vec![event_key.clone()];
-    let hashed_keys = poseidon_hash_many(&vec_keys);
-
-    // subscribe to the player's contract address
-    let stream = client
-        .on_event_message_updated(vec![hashed_keys])
-        .await
-        .unwrap();
 
     stream
 }
