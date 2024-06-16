@@ -1,5 +1,3 @@
-use std::default;
-
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -15,6 +13,7 @@ struct Camera;
 #[derive(Resource)]
 struct ToriiResource {
     entity: ToriiEntity,
+    prev_entity: ToriiEntity,
     rx: tokio::sync::mpsc::Receiver<ToriiEntity>,
 }
 
@@ -37,25 +36,9 @@ struct Moves {
 }
 
 fn main() {
-    // // run torii client in separate thread via tokio
-    // let tokio_runtime = Builder::new_current_thread()
-    //     .worker_threads(1)
-    //     .enable_all()
-    //     .build()
-    //     .unwrap();
-
-    // let (tx, rx) = tokio::sync::mpsc::channel::<Entity>(16);
-
-    // std::thread::spawn(move || {
-    //     tokio_runtime.block_on(run_torii_client(tx));
-    // });
-
     App::new()
         .add_systems(Startup, (spawn_camera, spawn_player, setup_tokio_and_torii))
-        .add_systems(
-            Update,
-            (update_position, print_torii_entity_updates, print_position),
-        )
+        .add_systems(Update, (update_torii_entity, update_torii_position))
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -80,7 +63,8 @@ fn setup_tokio_and_torii(mut commands: Commands) {
     };
 
     commands.insert_resource(ToriiResource {
-        entity: default_entity,
+        entity: default_entity.clone(),
+        prev_entity: default_entity,
         rx,
     });
 }
@@ -112,64 +96,37 @@ fn spawn_player(
     ));
 }
 
-// fn update_torii_entity(
-//     mut commands: Commands,
-//     mut torii_entity: ResMut<ToriiEntity>,
-//     entity: ToriiEntity,
-// ) {
-//     torii_entity = entity;
-// }
+fn update_torii_entity(mut torii_entity: ResMut<ToriiResource>) {
+    if let Ok(new_entity) = torii_entity.rx.try_recv() {
+        // info!("Message from Torii Client: {:?}", entity);
+        torii_entity.prev_entity = torii_entity.entity.clone();
+        torii_entity.entity = new_entity;
+        print_torii_position(torii_entity);
+    }
+}
 
-fn update_position(
-    mut query: Query<(
-        &mut Position,
-        &mut PreviousPosition,
-        &mut Moves,
-        &mut Transform,
-    )>,
+fn print_torii_position(torii_entity: ResMut<ToriiResource>) {
+    let has_changed = torii_entity.entity != torii_entity.prev_entity;
+    let is_model_empty = torii_entity.entity.models.is_empty();
+
+    if !is_model_empty && has_changed {
+        let (x, y) = get_current_position(&torii_entity.entity);
+        info!("Torii Entity Position: ({}, {})", x, y);
+    }
+}
+
+fn update_torii_position(
+    mut query: Query<(&mut Position, &mut Transform)>,
+    torii_entity: Res<ToriiResource>,
 ) {
-    for (mut position, mut previous_position, mut moves, mut transform) in query.iter_mut() {
-        previous_position.x = position.x;
-        previous_position.y = position.y;
+    if !torii_entity.entity.models.is_empty() {
+        let (x, y) = get_current_position(&torii_entity.entity);
 
-        if moves.remaining != 0 {
-            if moves.last_direction {
-                position.x += 1;
-                // position.y += 1;
-            } else {
-                position.x -= 1;
-                // position.y -= 1;
-            }
-
-            transform.translation.x = position.x as f32 * 3.;
-            // transform.translation.y = position.y as f32 * 3.;
-            moves.remaining -= 1;
-        } else {
-            moves.remaining = 100;
-            moves.last_direction = !moves.last_direction
+        for (mut position, mut transform) in query.iter_mut() {
+            position.x = x;
+            position.y = y;
+            transform.translation.x = x as f32 * 8.;
+            transform.translation.y = y as f32 * 8.;
         }
     }
-}
-
-fn _print_position(query: Query<(Entity, &Position, &PreviousPosition)>) {
-    for (entity, position, previous_position) in query.iter() {
-        if previous_position.x != position.x {
-            info!("Entity: {:?}, Position: {:?}", entity, position);
-        }
-    }
-}
-
-fn print_torii_entity_updates(mut torii_entity: ResMut<ToriiResource>) {
-    if let Ok(entity) = torii_entity.rx.try_recv() {
-        info!("Message from Torii Client: {:?}", entity);
-        torii_entity.entity = entity;
-    }
-}
-
-fn print_position(torii_entity: Res<ToriiResource>) {
-    if torii_entity.entity.models.is_empty() {
-        return;
-    }
-    let (x, y) = get_current_position(&torii_entity.entity);
-    info!("Torii Entity Position: ({}, {})", x, y);
 }
