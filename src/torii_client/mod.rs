@@ -1,12 +1,12 @@
-use crate::handling::get_current_position;
 use starknet_crypto::poseidon_hash_many;
 use starknet_ff::FieldElement;
 use std::vec;
+use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
 use torii_client::client::Client;
-use torii_grpc::client::EntityUpdateStreaming;
+use torii_grpc::{client::EntityUpdateStreaming, types::schema::Entity};
 
-pub async fn run_torii_client() {
+pub async fn run_torii_client(tx: Sender<Entity>) {
     println!("Running a rust torii client!");
 
     // client configuration
@@ -35,7 +35,7 @@ pub async fn run_torii_client() {
                 if data.models.is_empty() {
                     println!("Skipping initialization response.");
                 } else {
-                    get_current_position(&data);
+                    tx.send(data).await.unwrap();
                 }
             }
             Err(e) => {
