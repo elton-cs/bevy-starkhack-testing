@@ -12,3 +12,8 @@ tokio-stream = "0.1.15"
 torii-client = {git = "https://github.com/dojoengine/dojo.git" }
 torii-grpc = {git = "https://github.com/dojoengine/dojo.git" }
 
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
